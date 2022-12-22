@@ -127,8 +127,6 @@ mod print;
 mod synchronization;
 mod time;
 
-use crate::bsp::driver::VIDEOCORE;
-
 /// Early init code.
 ///
 /// # Safety
@@ -171,15 +169,10 @@ fn kernel_main() -> ! {
     // Test a failing timer case.
     time::time_manager().spin_for(Duration::from_nanos(1));
 
-    /*
     loop {
         info!("Spinning for 1 second");
         time::time_manager().spin_for(Duration::from_secs(1));
     }
-    */
 
-    //VIDEOCORE.test_image();
-    VIDEOCORE.write_str("Hello World");
-
-    loop {}
+    //loop {}
 }

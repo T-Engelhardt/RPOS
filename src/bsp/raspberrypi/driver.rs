@@ -49,7 +49,8 @@ fn post_init_mailbox() -> Result<(), &'static str> {
 /// This must be called only after successful init of the Video driver.
 fn post_init_video() -> Result<(), &'static str> {
     //console::register_console(&VIDEOCORE);
-    //console::copy_console::register_console(&VIDEOCORE);
+    VIDEOCORE.reset_console();
+    console::copy_console::register_console(&VIDEOCORE);
 
     Ok(())
 }

@@ -3,7 +3,7 @@
 use core::ptr;
 
 use embedded_graphics::{
-    mono_font::{iso_8859_9::FONT_6X10, MonoFont},
+    mono_font::{ascii::FONT_10X20, MonoFont},
     pixelcolor::Rgb888,
     prelude::*,
 };
@@ -19,7 +19,7 @@ pub enum ColorDepth {
 }
 
 // GPU_FONT is not Thread save
-pub(crate) const GPU_FONT: NullLock<MonoFont> = NullLock::new(FONT_6X10);
+pub(crate) const GPU_FONT: NullLock<MonoFont> = NullLock::new(FONT_10X20);
 
 impl ColorDepth {
     /// Determine the ColorDepth

@@ -4,11 +4,17 @@ use crate::{
     bsp::driver::MAILBOX,
     console, debug, driver,
     gpu::{Display, GPU_FONT},
-    info, println, synchronization,
+    info, synchronization,
     synchronization::NullLock,
     warn,
 };
-use embedded_graphics::{mono_font::MonoTextStyle, pixelcolor::Rgb888, prelude::*, text::Text};
+use embedded_graphics::{
+    mono_font::{ascii::FONT_6X10, MonoTextStyle},
+    pixelcolor::Rgb888,
+    prelude::*,
+    primitives::{PrimitiveStyleBuilder, Rectangle},
+    text::Text,
+};
 
 struct VideoInner {
     display: Option<Display>,
@@ -16,6 +22,8 @@ struct VideoInner {
     cursor_y: u32,
     chars_written: usize,
     chars_read: usize,
+    font_width: u32,
+    font_height: u32,
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -35,6 +43,8 @@ impl VideoInner {
             cursor_y: 0,
             chars_written: 0,
             chars_read: 0,
+            font_width: 0,
+            font_height: 0,
         }
     }
 
@@ -54,6 +64,34 @@ impl VideoInner {
         }
     }
 
+    /// reset/init cursor for console for output
+    pub fn reset_console(&mut self) {
+        GPU_FONT.lock(|font| {
+            self.font_width = font.character_size.width;
+            self.font_height = font.character_size.height;
+        });
+        info!("VideoConsole font {}x{}", self.font_width, self.font_height);
+        // cursor needs to be shiftet to accommodate a char
+        // of by one !!!
+        // Text is rendered by embedded-graphics at the bottom left pixel of the char
+        // thats why font heigth - 1 because the the pixel is ..=x and not ..x => open interval
+        self.cursor_y = self.font_height - 1;
+        self.cursor_x = 0;
+
+        // set framebuffer to zero
+        if let Some(display) = &mut self.display {
+            if let Some(ptr) = display.fp_ptr {
+                unsafe {
+                    ptr::write_bytes::<u32>(
+                        ptr as *mut u32,
+                        u8::MIN,
+                        display.fp_len / size_of::<u32>(),
+                    );
+                }
+            }
+        }
+    }
+
     fn write_char(&mut self, c: char) {
         // hack to create &str
         let mut b = [0; 2];
@@ -61,43 +99,96 @@ impl VideoInner {
         self.write_str(c.encode_utf8(&mut b));
     }
 
-    pub fn write_str(&mut self, text: &str) {
+    fn write_str(&mut self, text: &str) {
         if let Some(display) = &mut self.display {
+            let mut cutoff: u32 = text.len() as u32;
+            let mut next_row: bool = false;
+
+            if self.cursor_x + text.len() as u32 * self.font_width > display.width {
+                let overflow_char = (self.cursor_x / self.font_width + text.len() as u32)
+                    - display.width / self.font_width;
+                cutoff -= overflow_char;
+                next_row = true;
+            }
+
+            // Draw text
             // GPU FONT is not thread save
             GPU_FONT.lock(|font| {
-                warn!("x: {}, y: {}", self.cursor_x, self.cursor_y);
-                warn!(
-                    "x: {}, y: {}",
-                    self.cursor_x * font.character_size.width,
-                    ((self.cursor_y * font.character_size.height) + font.character_size.height)
-                );
-
-                // TODO
-                // we write per string NOT char
-                // maybe needed to split text
-
                 // Create a new character style
                 let style = MonoTextStyle::new(font, Rgb888::WHITE);
 
+                // DEBUG
+                // cant use fmt:: here since fmt calls this fn
+                //warn!("!x: {} y: {}", self.cursor_x, self.cursor_y);
+
                 // Create a text at position (x, y) and draw it using the previously defined style
                 let _ = Text::new(
-                    text,
-                    Point::new(
-                        (self.cursor_x * font.character_size.width) as i32,
-                        ((self.cursor_y * font.character_size.height) + font.character_size.height)
-                            as i32,
-                    ),
+                    text.get(0..cutoff as usize).unwrap(),
+                    Point::new(self.cursor_x as i32, self.cursor_y as i32),
                     style,
                 )
                 .draw(display);
             });
-        } else {
-            warn!("No Display found");
+
+            // calc the cursor
+            if !next_row {
+                self.cursor_x += text.len() as u32 * self.font_width;
+            } else {
+                self.cursor_x = 0;
+                self.cursor_y += self.font_height;
+            }
+
+            // TODO check for new line in text
+            // check if new line at the end
+            if text.ends_with('\n') {
+                self.cursor_x = 0;
+                self.cursor_y += self.font_height;
+            }
+
+            // run out of screen at the bottom
+            if self.cursor_y >= display.height {
+                self.cursor_y -= self.font_height;
+                self.scroll_video_console();
+            }
+
+            // print rest string
+            if next_row {
+                self.write_str(text.get(cutoff as usize..text.len()).unwrap())
+            }
         }
     }
 
+    fn scroll_video_console(&self) {
+        // TODO
+        if let Some(display) = &self.display {
+            if let Some(fp) = display.fp_ptr {
+                // move every char row up except the first
+                for row in self.font_height as isize..display.height as isize {
+                    unsafe {
+                        ptr::copy_nonoverlapping::<u32>(
+                            fp.offset(row * display.width as isize),
+                            fp.offset((row - self.font_height as isize) * display.width as isize)
+                                as *mut u32,
+                            display.width as usize,
+                        )
+                    }
+                }
+                // empty last row
+                for row in display.height - self.font_height..display.height {
+                    unsafe {
+                        ptr::write_bytes(
+                            fp.offset((row * display.width) as isize) as *mut u32,
+                            u8::MIN,
+                            display.width as usize,
+                        )
+                    }
+                }
+            }
+        };
+    }
+
     // display test image
-    pub fn test_image(&mut self) {
+    pub fn _test_image(&mut self) {
         if let Some(display) = &mut self.display {
             if let Some(ptr) = display.fp_ptr {
                 unsafe {
@@ -108,22 +199,26 @@ impl VideoInner {
                     );
                 }
 
-                // print Text
-                let text = "Hello Rust!";
+                let style = PrimitiveStyleBuilder::new()
+                    .stroke_color(Rgb888::RED)
+                    .stroke_width(1)
+                    .fill_color(Rgb888::GREEN)
+                    .build();
 
-                // GPU FONT is not thread save
-                GPU_FONT.lock(|font| {
-                    // Create a new character style
-                    let style = MonoTextStyle::new(font, Rgb888::RED);
-
-                    // Create a text at position (0, 0) and draw it using the previously defined style
-                    let _ = Text::new(
-                        text,
-                        Point::new(0, font.character_size.height.try_into().unwrap()),
-                        style,
-                    )
+                let _ = Rectangle::new(Point::new(0, 0), Size::new(10, 10))
+                    .into_styled(style)
                     .draw(display);
-                });
+
+                let _ = Rectangle::new(Point::new(0, 10), Size::new(10, 10))
+                    .into_styled(style)
+                    .draw(display);
+
+                let style = MonoTextStyle::new(&FONT_6X10, Rgb888::WHITE);
+
+                // Create a text at position (20, 30) and draw it using the previously defined style
+                let _ = Text::new("Hello Rust!", Point::new(10, 9), style).draw(display);
+
+                let _ = Text::new("Hello Rust!", Point::new(10, 19), style).draw(display);
             } else {
                 warn!("No framepuffer found");
             }
@@ -164,13 +259,19 @@ impl Video {
         }
     }
 
-    // TODO REMOVE
+    pub fn reset_console(&self) {
+        self.inner.lock(|inner| inner.reset_console())
+    }
+
+    // DEBUG
+    /*
     pub fn write_str(&self, text: &str) {
         self.inner.lock(|inner| inner.write_str(text))
     }
+    */
 
-    pub fn test_image(&self) {
-        self.inner.lock(|inner| inner.test_image())
+    pub fn _test_image(&self) {
+        self.inner.lock(|inner| inner._test_image())
     }
 }
 
@@ -213,6 +314,14 @@ impl console::interface::Read for Video {
     fn clear_rx(&self) {}
 }
 
-impl console::interface::Statistics for Video {}
+impl console::interface::Statistics for Video {
+    fn chars_written(&self) -> usize {
+        self.inner.lock(|inner| inner.chars_written)
+    }
+
+    fn chars_read(&self) -> usize {
+        self.inner.lock(|inner| inner.chars_read)
+    }
+}
 
 impl console::interface::All for Video {}
