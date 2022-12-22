@@ -9,6 +9,7 @@ dependencies = [
  "aarch64-cpu",
  "embedded-graphics",
  "linked_list_allocator",
+ "tinybmp",
  "tock-registers",
 ]
 
@@ -90,6 +91,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "578ede34cf02f8924ab9447f50c28075b4d3e5b269972345e7e0372b38c6cdcd"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "tinybmp"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e959c507975d768a226a08227d56791f6e60bddcf714ad7ef67ae2d20bae743"
+dependencies = [
+ "embedded-graphics",
 ]
 
 [[package]]

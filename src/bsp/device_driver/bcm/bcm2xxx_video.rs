@@ -5,12 +5,14 @@ use crate::{
     synchronization::NullLock, warn,
 };
 use embedded_graphics::{
-    mono_font::{ascii::FONT_6X10, MonoFont, MonoTextStyle},
+    image::Image,
+    mono_font::MonoTextStyle,
+    mono_font::{ascii::FONT_6X10, MonoFont},
     pixelcolor::Rgb888,
     prelude::*,
-    primitives::{PrimitiveStyleBuilder, Rectangle},
     text::Text,
 };
+use tinybmp::Bmp;
 
 // FONT for this video driver output
 const VIDEO_FONT: MonoFont = FONT_6X10;
@@ -180,38 +182,15 @@ impl VideoInner {
     // display test image
     pub fn _test_image(&mut self) {
         if let Some(display) = &mut self.display {
-            if let Some(ptr) = display.fp_ptr {
-                unsafe {
-                    ptr::write_bytes::<u32>(
-                        ptr as *mut u32,
-                        u8::MIN,
-                        display.fp_len / size_of::<u32>(),
-                    );
-                }
+            // Include the BMP file data.
+            let bmp_data = include_bytes!("../../../../img/bmp/rust_ferris.bmp");
 
-                let style = PrimitiveStyleBuilder::new()
-                    .stroke_color(Rgb888::RED)
-                    .stroke_width(1)
-                    .fill_color(Rgb888::GREEN)
-                    .build();
+            // Parse the BMP file.
+            let bmp = Bmp::from_slice(bmp_data).unwrap();
 
-                let _ = Rectangle::new(Point::new(0, 0), Size::new(10, 10))
-                    .into_styled(style)
-                    .draw(display);
-
-                let _ = Rectangle::new(Point::new(0, 10), Size::new(10, 10))
-                    .into_styled(style)
-                    .draw(display);
-
-                let style = MonoTextStyle::new(&FONT_6X10, Rgb888::WHITE);
-
-                // Create a text at position (20, 30) and draw it using the previously defined style
-                let _ = Text::new("Hello Rust!", Point::new(10, 9), style).draw(display);
-
-                let _ = Text::new("Hello Rust!", Point::new(10, 19), style).draw(display);
-            } else {
-                warn!("No framepuffer found");
-            }
+            // Draw the image with the top left corner at (10, 20) by wrapping it in
+            // an embedded-graphics `Image`.
+            let _ = Image::new(&bmp, Point::new(0, 0)).draw(display);
         } else {
             warn!("No Display found");
         }

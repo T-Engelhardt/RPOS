@@ -119,6 +119,7 @@
 #![no_main]
 #![no_std]
 
+use crate::bsp::driver::VIDEOCORE;
 use crate::{bsp::memory::virt_heap_start, memory::heap_alloc::kernel_heap_allocator};
 
 extern crate alloc;
@@ -184,10 +185,15 @@ fn kernel_main() -> ! {
     // Test a failing timer case.
     time::time_manager().spin_for(Duration::from_nanos(1));
 
+    /*
     loop {
         info!("Spinning for 1 second");
         time::time_manager().spin_for(Duration::from_secs(1));
     }
+    */
 
-    //loop {}
+    VIDEOCORE.reset_console();
+    VIDEOCORE._test_image();
+
+    loop {}
 }
