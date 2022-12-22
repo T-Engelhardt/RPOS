@@ -7,7 +7,7 @@ use crate::{
 
 use embedded_graphics::{
     mono_font::{ascii::FONT_10X20, MonoTextStyle},
-    pixelcolor::{Bgr888, Rgb888},
+    pixelcolor::Rgb888,
     prelude::*,
     text::Text,
 };
@@ -46,7 +46,7 @@ impl VideoInner {
         }
     }
 
-    // display white image
+    // display test image
     pub fn test_image(&mut self) {
         if let Some(display) = &mut self.display {
             if let Some(ptr) = display.fr_ptr {
@@ -63,7 +63,7 @@ impl VideoInner {
                 let font = FONT_10X20;
 
                 // Create a new character style
-                let style = MonoTextStyle::new(&font, Bgr888::BLUE);
+                let style = MonoTextStyle::new(&font, Rgb888::RED);
 
                 // Create a text at position (0, 0) and draw it using the previously defined style
                 let _ = Text::new(

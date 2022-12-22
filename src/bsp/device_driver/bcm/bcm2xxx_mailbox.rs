@@ -113,7 +113,7 @@ impl MailBoxInner {
         let mut result = Display {
             width: unsafe { BUFFER[10] },
             height: unsafe { BUFFER[11] },
-            depth: ColorDepth::determine_depth(unsafe { BUFFER[15] }),
+            depth: ColorDepth::determine_depth(unsafe { BUFFER[15] }, unsafe { BUFFER[19] == 0 }),
             fr_ptr: None,
             fr_length: 0,
         };

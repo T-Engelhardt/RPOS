@@ -2,47 +2,43 @@
 
 use core::ptr;
 
-use embedded_graphics::{
-    pixelcolor::{Bgr888, Rgb888},
-    prelude::*,
-};
+use embedded_graphics::{pixelcolor::Rgb888, prelude::*};
 
 #[allow(non_camel_case_types)]
 #[derive(Debug)]
 pub enum ColorDepth {
-    RGB24,
+    BGRA32,
     ARGB32,
-    UNKNOWN,
+    UNSUPPORTED,
 }
 
 impl ColorDepth {
-    pub fn determine_depth(input: u32) -> ColorDepth {
+    /// Determine the ColorDepth
+    pub fn determine_depth(input: u32, blue_first: bool) -> ColorDepth {
         match input {
-            24 => Self::RGB24,
-            32 => Self::ARGB32,
-            _ => Self::UNKNOWN,
-        }
-    }
-    /*
-    /// get representation of a pixel
-    ///
-    /// RGB24   calc_pixel(...) as u32 ignore 4 MSB
-    /// ARGB32  calc_pixel(...) as u32
-    pub fn calc_pixel(&self, red: usize, blue: usize, green: usize, alpha: Option<usize>) -> usize {
-        match &self {
-            ColorDepth::RGB24 => ColorDepth::calc_rgb24(red, blue, green, None),
-            ColorDepth::ARGB32 => ColorDepth::calc_rgb24(red, blue, green, alpha),
-            ColorDepth::UNKNOWN => panic!("UNKNOWN ColorDepth"),
+            32 => {
+                if blue_first {
+                    Self::BGRA32
+                } else {
+                    Self::ARGB32
+                }
+            }
+            _ => Self::UNSUPPORTED,
         }
     }
 
-    fn calc_rgb24(red: usize, blue: usize, green: usize, alpha: Option<usize>) -> usize {
-        0
+    /// Return byte array of Rgb888 into u32 based on the Color Depth
+    pub fn byte_array_to_u32(&self, src: [u8; 3]) -> u32 {
+        match self {
+            ColorDepth::BGRA32 => {
+                ((src[0] as u32) << 0) + ((src[1] as u32) << 8) + ((src[2] as u32) << 16)
+            }
+            ColorDepth::ARGB32 => {
+                ((src[0] as u32) << 16) + ((src[1] as u32) << 8) + ((src[2] as u32) << 0)
+            }
+            ColorDepth::UNSUPPORTED => panic!("UNSUPPORTED Color Depth"),
+        }
     }
-    fn calc_argb32(red: usize, blue: usize, green: usize, alpha: Option<usize>) -> usize {
-        0
-    }
-    */
 }
 
 pub struct Display {
@@ -59,7 +55,7 @@ pub struct Display {
 unsafe impl Send for Display {}
 
 impl DrawTarget for Display {
-    type Color = Bgr888;
+    type Color = Rgb888;
 
     // `Display` uses a framebuffer and doesn't need to communicate with the display
     // controller to draw pixel, which means that drawing operations can never fail. To reflect
@@ -86,7 +82,7 @@ impl DrawTarget for Display {
                 unsafe {
                     ptr::write_volatile(
                         ptr.offset(index.try_into().unwrap()) as *mut u32,
-                        byte_array_to_u32(color.to_le_bytes()),
+                        self.depth.byte_array_to_u32(color.to_le_bytes()),
                     )
                 }
             }
@@ -100,8 +96,4 @@ impl OriginDimensions for Display {
     fn size(&self) -> Size {
         Size::new(self.width, self.height)
     }
-}
-
-fn byte_array_to_u32(src: [u8; 3]) -> u32 {
-    ((src[0] as u32) << 16) + ((src[1] as u32) << 8) + ((src[2] as u32) << 0)
 }
