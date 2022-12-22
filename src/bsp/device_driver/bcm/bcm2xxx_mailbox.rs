@@ -97,9 +97,9 @@ impl MailBoxInner {
                 0,                              // request/response code
                 0x00048003, 8, 0, 1920, 1080,   // sets the screen size to
                 0x00048004, 8, 0, 1920, 1080,   // sets the virtual screen size
-                0x00048005, 4, 0, 32,           // sets the depth to
+                0x00048005, 4, 0, 32,           // sets the depth to 32bits
                 0x00048006, 4, 0, 1,            // set pixel order to RGB
-                0x00040007, 4, 0, 0,            // set alpha channel
+                0x00040007, 4, 0, 2,            // set alpha channel => ignore
                 0,                              // end tag
                 0, 0, 0,                        // padding
             ];
@@ -114,8 +114,8 @@ impl MailBoxInner {
             width: unsafe { BUFFER[10] },
             height: unsafe { BUFFER[11] },
             depth: ColorDepth::determine_depth(unsafe { BUFFER[15] }, unsafe { BUFFER[19] == 0 }),
-            fr_ptr: None,
-            fr_length: 0,
+            fp_ptr: None,
+            fp_len: 0,
         };
 
         {
@@ -133,8 +133,8 @@ impl MailBoxInner {
         while let Err(_) = self.recv_mail(WRITE::CHANNEL::MAIL_TAGS) {}
 
         // convert videocore mapped addr to arm addr
-        result.fr_ptr = Some((unsafe { BUFFER[5] } & 0x3FFFFFFF) as *const u32);
-        result.fr_length = unsafe { BUFFER[6] } as usize;
+        result.fp_ptr = Some((unsafe { BUFFER[5] } & 0x3FFFFFFF) as *const u32);
+        result.fp_len = unsafe { BUFFER[6] } as usize;
 
         Some(result)
     }

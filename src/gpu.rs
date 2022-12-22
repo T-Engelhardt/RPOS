@@ -45,13 +45,13 @@ pub struct Display {
     pub width: u32,
     pub height: u32,
     pub depth: ColorDepth,          // bits per color
-    pub fr_ptr: Option<*const u32>, // framepuffer base
-    pub fr_length: usize,           // framepuffer length
+    pub fp_ptr: Option<*const u32>, // framepuffer base
+    pub fp_len: usize,              // framepuffer length
 }
 
 /// # SAFTEY
 ///
-/// fr_ptr is memory mapped and should thread save
+/// fp_ptr is memory mapped and should thread save
 unsafe impl Send for Display {}
 
 impl DrawTarget for Display {
@@ -78,7 +78,7 @@ impl DrawTarget for Display {
             let index: u32 = (coord.x + coord.y * self.width as i32).try_into().unwrap();
 
             //self.framebuffer[index as usize] = color.luma();
-            if let Some(ptr) = self.fr_ptr {
+            if let Some(ptr) = self.fp_ptr {
                 unsafe {
                     ptr::write_volatile(
                         ptr.offset(index.try_into().unwrap()) as *mut u32,

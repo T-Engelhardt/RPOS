@@ -37,10 +37,10 @@ impl VideoInner {
                 "Found Display {} x {} depth {:?}",
                 display.width, display.height, display.depth
             );
-            if let Some(ptr) = display.fr_ptr {
+            if let Some(ptr) = display.fp_ptr {
                 debug!(
                     "Framebuffer at {:?} with length {} bytes",
-                    ptr, display.fr_length
+                    ptr, display.fp_len
                 )
             }
         }
@@ -49,12 +49,12 @@ impl VideoInner {
     // display test image
     pub fn test_image(&mut self) {
         if let Some(display) = &mut self.display {
-            if let Some(ptr) = display.fr_ptr {
+            if let Some(ptr) = display.fp_ptr {
                 unsafe {
                     ptr::write_bytes::<u32>(
                         ptr as *mut u32,
                         u8::MIN,
-                        display.fr_length / size_of::<u32>(),
+                        display.fp_len / size_of::<u32>(),
                     );
                 }
 
