@@ -2,7 +2,13 @@
 
 use core::ptr;
 
-use embedded_graphics::{pixelcolor::Rgb888, prelude::*};
+use embedded_graphics::{
+    mono_font::{iso_8859_9::FONT_6X10, MonoFont},
+    pixelcolor::Rgb888,
+    prelude::*,
+};
+
+use crate::synchronization::NullLock;
 
 #[allow(non_camel_case_types)]
 #[derive(Debug)]
@@ -11,6 +17,9 @@ pub enum ColorDepth {
     ARGB32,
     UNSUPPORTED,
 }
+
+// GPU_FONT is not Thread save
+pub(crate) const GPU_FONT: NullLock<MonoFont> = NullLock::new(FONT_6X10);
 
 impl ColorDepth {
     /// Determine the ColorDepth

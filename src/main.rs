@@ -178,7 +178,8 @@ fn kernel_main() -> ! {
     }
     */
 
-    VIDEOCORE.test_image();
+    //VIDEOCORE.test_image();
+    VIDEOCORE.write_str("Hello World");
 
     loop {}
 }

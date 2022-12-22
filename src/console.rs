@@ -4,7 +4,10 @@
 
 //! System console.
 
+pub mod copy_console;
 mod null_console;
+
+pub use copy_console::*;
 
 use crate::synchronization::{self, NullLock};
 

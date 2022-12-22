@@ -5,7 +5,11 @@
 //! BSP driver support.
 
 use super::memory::map::mmio;
-use crate::{bsp::device_driver, console, driver as generic_driver};
+use crate::{
+    bsp::device_driver,
+    console::{self, COPY_CONSOLE},
+    driver as generic_driver,
+};
 use core::sync::atomic::{AtomicBool, Ordering};
 
 //--------------------------------------------------------------------------------------------------
@@ -25,7 +29,8 @@ pub static VIDEOCORE: device_driver::Video = unsafe { device_driver::Video::new(
 
 /// This must be called only after successful init of the UART driver.
 fn post_init_uart() -> Result<(), &'static str> {
-    console::register_console(&PL011_UART);
+    //console::register_console(&PL011_UART);
+    console::copy_console::register_console(&PL011_UART);
 
     Ok(())
 }
@@ -43,6 +48,9 @@ fn post_init_mailbox() -> Result<(), &'static str> {
 
 /// This must be called only after successful init of the Video driver.
 fn post_init_video() -> Result<(), &'static str> {
+    //console::register_console(&VIDEOCORE);
+    //console::copy_console::register_console(&VIDEOCORE);
+
     Ok(())
 }
 
@@ -102,6 +110,9 @@ pub unsafe fn init() -> Result<(), &'static str> {
     if INIT_DONE.load(Ordering::Relaxed) {
         return Err("Init already done");
     }
+
+    // register COPY Console
+    console::register_console(&COPY_CONSOLE);
 
     driver_uart()?;
     driver_gpio()?;
