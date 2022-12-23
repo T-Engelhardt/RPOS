@@ -38,7 +38,7 @@ pub fn register_console(new_console: &'static (dyn interface::All + Sync)) {
 
         if COPY_CONSOLE.console2.is_none() {
             COPY_CONSOLE.console2 = Some(new_console);
-            return;
+            //return; // dont forget to uncomment if more consoles are added
         }
     };
 }
