@@ -1,20 +1,19 @@
 use core::{fmt, mem::size_of, ptr};
 
 use crate::{
-    bsp::driver::MAILBOX,
-    console, debug, driver,
-    gpu::{Display, GPU_FONT},
-    info, synchronization,
-    synchronization::NullLock,
-    warn,
+    bsp::driver::MAILBOX, console, debug, driver, gpu::Display, info, synchronization,
+    synchronization::NullLock, warn,
 };
 use embedded_graphics::{
-    mono_font::{ascii::FONT_6X10, MonoTextStyle},
+    mono_font::{ascii::FONT_6X10, MonoFont, MonoTextStyle},
     pixelcolor::Rgb888,
     prelude::*,
     primitives::{PrimitiveStyleBuilder, Rectangle},
     text::Text,
 };
+
+// FONT for this video driver output
+const VIDEO_FONT: MonoFont = FONT_6X10;
 
 struct VideoInner {
     display: Option<Display>,
@@ -43,8 +42,8 @@ impl VideoInner {
             cursor_y: 0,
             chars_written: 0,
             chars_read: 0,
-            font_width: 0,
-            font_height: 0,
+            font_width: VIDEO_FONT.character_size.width,
+            font_height: VIDEO_FONT.character_size.height,
         }
     }
 
@@ -55,6 +54,7 @@ impl VideoInner {
                 "Found Display {} x {} depth {:?}",
                 display.width, display.height, display.depth
             );
+            info!("VideoConsole font {}x{}", self.font_width, self.font_height);
             if let Some(ptr) = display.fp_ptr {
                 debug!(
                     "Framebuffer at {:?} with length {} bytes",
@@ -66,11 +66,6 @@ impl VideoInner {
 
     /// reset/init cursor for console for output
     pub fn reset_console(&mut self) {
-        GPU_FONT.lock(|font| {
-            self.font_width = font.character_size.width;
-            self.font_height = font.character_size.height;
-        });
-        info!("VideoConsole font {}x{}", self.font_width, self.font_height);
         // cursor needs to be shiftet to accommodate a char
         // of by one !!!
         // Text is rendered by embedded-graphics at the bottom left pixel of the char
@@ -122,19 +117,16 @@ impl VideoInner {
             }
 
             // Draw text
-            // GPU FONT is not thread save
-            GPU_FONT.lock(|font| {
-                // Create a new character style
-                let style = MonoTextStyle::new(font, Rgb888::WHITE);
+            // Create a new character style
+            let style = MonoTextStyle::new(&VIDEO_FONT, Rgb888::WHITE);
 
-                // Create a text at position (x, y) and draw it using the previously defined style
-                let _ = Text::new(
-                    text.get(0..cutoff).unwrap(),
-                    Point::new(self.cursor_x as i32, self.cursor_y as i32),
-                    style,
-                )
-                .draw(display);
-            });
+            // Create a text at position (x, y) and draw it using the previously defined style
+            let _ = Text::new(
+                text.get(0..cutoff).unwrap(),
+                Point::new(self.cursor_x as i32, self.cursor_y as i32),
+                style,
+            )
+            .draw(display);
 
             // calc the cursor
             if !next_row {
