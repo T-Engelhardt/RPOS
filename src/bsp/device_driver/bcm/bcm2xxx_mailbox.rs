@@ -1,8 +1,8 @@
 use core::{mem::size_of, ptr};
 
 use crate::{
-    bsp::device_driver::common::MMIODerefWrapper, cpu, debug, driver, gpu::*, info,
-    synchronization, synchronization::NullLock,
+    bsp::device_driver::common::MMIODerefWrapper, cpu, debug, driver, gpu::*, synchronization,
+    synchronization::NullLock,
 };
 
 use tock_registers::{
@@ -108,7 +108,7 @@ impl MailBoxInner {
         }
 
         // wait until message on given channel is received
-        while let Err(_) = self.recv_mail(WRITE::CHANNEL::MAIL_TAGS) {}
+        while self.recv_mail(WRITE::CHANNEL::MAIL_TAGS).is_err() {}
 
         let mut result = Display {
             width: unsafe { BUFFER[10] },
@@ -130,7 +130,7 @@ impl MailBoxInner {
             self.send_mail(&msg, WRITE::CHANNEL::MAIL_TAGS);
         }
 
-        while let Err(_) = self.recv_mail(WRITE::CHANNEL::MAIL_TAGS) {}
+        while self.recv_mail(WRITE::CHANNEL::MAIL_TAGS).is_err() {}
 
         // convert videocore mapped addr to arm addr
         result.fp_ptr = Some((unsafe { BUFFER[5] } & 0x3FFFFFFF) as *const u32);
@@ -167,7 +167,7 @@ impl MailBoxInner {
         // make sure that the addr is not on the stack
         self.copy_to_buffer(msg.len(), msg);
 
-        info!("Sending Mail on channel {}", channel.value);
+        debug!("Sending Mail on channel {}", channel.value);
         // debug print
         debug!(
             "Addr: {:?} ; Len: {:#010x}",
@@ -175,8 +175,8 @@ impl MailBoxInner {
             msg.len() * size_of::<u32>(),
         );
 
-        for i in 0..msg.len() {
-            let n = unsafe { ptr::read_volatile(&BUFFER[i]) };
+        // debug print
+        for n in unsafe { BUFFER.iter().take(msg.len()) } {
             debug!("{:#010x}", n);
         }
 
@@ -193,7 +193,7 @@ impl MailBoxInner {
     // returns OK with channel id if it received the msg on the given channel or ERR with incorrect channel
     fn recv_mail(&self, channel: FieldValue<u32, WRITE::Register>) -> Result<u32, u32> {
         // wait for data
-        info!("Waiting Mail on channel {}", channel.value);
+        debug!("Waiting Mail on channel {}", channel.value);
         while self.registers.STATUS.matches_all(STATUS::EMPTY::SET) {
             cpu::nop();
         }
@@ -201,15 +201,14 @@ impl MailBoxInner {
         // The callee is not allowed to return a different buffer address, this allows the caller to make independent asynchronous requests.
         // Thats why we dont need to check the response data since its the BUFFER Addr
         let recv_channel = self.registers.READ.read(READ::CHANNEL);
-        info!("Received Mail on channel {}", recv_channel);
+        debug!("Received Mail on channel {}", recv_channel);
         if recv_channel != channel.value {
             return Err(recv_channel);
         }
 
         // debug print
         let recv_length = unsafe { ptr::read_volatile(&BUFFER[0]) } as usize / size_of::<u32>();
-        for i in 0..recv_length {
-            let n = unsafe { ptr::read_volatile(&BUFFER[i]) };
+        for n in unsafe { BUFFER.iter().take(recv_length) } {
             debug!("{:#010x}", n);
         }
 
