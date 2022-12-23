@@ -129,7 +129,7 @@ impl VideoInner {
 
                 // Create a text at position (x, y) and draw it using the previously defined style
                 let _ = Text::new(
-                    text.get(0..cutoff as usize).unwrap(),
+                    text.get(0..cutoff).unwrap(),
                     Point::new(self.cursor_x as i32, self.cursor_y as i32),
                     style,
                 )
@@ -152,7 +152,7 @@ impl VideoInner {
 
             // print rest string
             if next_row {
-                self.write_str(text.get(cutoff as usize..text.len()).unwrap())
+                self.write_str(text.get(cutoff..text.len()).unwrap())
             }
         }
     }

@@ -45,7 +45,7 @@ fn debug_print_alloc_dealloc(operation: &'static str, ptr: *mut u8, layout: Layo
         size_h,
         size_unit,
         ptr,
-        unsafe { ptr.offset(size as isize) },
+        unsafe { ptr.add(size) },
     );
 }
 

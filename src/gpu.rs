@@ -40,10 +40,10 @@ impl ColorDepth {
     pub fn byte_array_to_u32(&self, src: [u8; 3]) -> u32 {
         match self {
             ColorDepth::BGRA32 => {
-                ((src[0] as u32) << 0) + ((src[1] as u32) << 8) + ((src[2] as u32) << 16)
+                (src[0] as u32) + ((src[1] as u32) << 8) + ((src[2] as u32) << 16)
             }
             ColorDepth::ARGB32 => {
-                ((src[0] as u32) << 16) + ((src[1] as u32) << 8) + ((src[2] as u32) << 0)
+                ((src[0] as u32) << 16) + ((src[1] as u32) << 8) + (src[2] as u32)
             }
             ColorDepth::UNSUPPORTED => panic!("UNSUPPORTED Color Depth"),
         }

@@ -31,12 +31,12 @@ pub static mut COPY_CONSOLE: CopyConsole = CopyConsole {
 /// static mut CONSOLE is only changed at boot
 pub fn register_console(new_console: &'static (dyn interface::All + Sync)) {
     unsafe {
-        if let None = COPY_CONSOLE.console1 {
+        if COPY_CONSOLE.console1.is_none() {
             COPY_CONSOLE.console1 = Some(new_console);
             return;
         }
 
-        if let None = COPY_CONSOLE.console2 {
+        if COPY_CONSOLE.console2.is_none() {
             COPY_CONSOLE.console2 = Some(new_console);
             return;
         }
@@ -55,14 +55,10 @@ impl interface::Write for CopyConsole {
 
     fn write_fmt(&self, args: fmt::Arguments) -> fmt::Result {
         if let Some(console) = unsafe { COPY_CONSOLE.console1 } {
-            if let Err(err) = console.write_fmt(args) {
-                return Err(err);
-            }
+            console.write_fmt(args)?;
         }
         if let Some(console) = unsafe { COPY_CONSOLE.console2 } {
-            if let Err(err) = console.write_fmt(args) {
-                return Err(err);
-            }
+            console.write_fmt(args)?;
         }
         fmt::Result::Ok(())
     }
