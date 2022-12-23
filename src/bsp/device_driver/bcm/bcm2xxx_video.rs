@@ -48,7 +48,7 @@ impl VideoInner {
     }
 
     pub fn init(&mut self) {
-        self.display = MailBox::request_framebuffer(&MAILBOX);
+        self.display = MAILBOX.request_framebuffer();
         if let Some(display) = &self.display {
             info!(
                 "Found Display {} x {} depth {:?}",
@@ -269,8 +269,6 @@ impl Video {
 // OS Interface Code
 //------------------------------------------------------------------------------
 use synchronization::interface::Mutex;
-
-use super::MailBox;
 
 impl driver::interface::DeviceDriver for Video {
     fn compatible(&self) -> &'static str {
