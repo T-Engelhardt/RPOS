@@ -101,13 +101,23 @@ impl VideoInner {
 
     fn write_str(&mut self, text: &str) {
         if let Some(display) = &mut self.display {
-            let mut cutoff: u32 = text.len() as u32;
+            let mut cutoff: usize = text.len();
             let mut next_row: bool = false;
 
+            // found newline in text -> go to next row
+            if let Some(index) = text.chars().position(|c| c == '\n') {
+                // dont want to include the '\n'
+                // SAFTEY for 'text.get(0..cutoff as usize).unwrap()' down below
+                // .get() returns an empty slice if text only contains \n
+                cutoff = index + 1;
+                next_row = true;
+            }
+
+            // Calculate overflow in a row
             if self.cursor_x + text.len() as u32 * self.font_width > display.width {
                 let overflow_char = (self.cursor_x / self.font_width + text.len() as u32)
                     - display.width / self.font_width;
-                cutoff -= overflow_char;
+                cutoff -= overflow_char as usize;
                 next_row = true;
             }
 
@@ -116,10 +126,6 @@ impl VideoInner {
             GPU_FONT.lock(|font| {
                 // Create a new character style
                 let style = MonoTextStyle::new(font, Rgb888::WHITE);
-
-                // DEBUG
-                // cant use fmt:: here since fmt calls this fn
-                //warn!("!x: {} y: {}", self.cursor_x, self.cursor_y);
 
                 // Create a text at position (x, y) and draw it using the previously defined style
                 let _ = Text::new(
@@ -134,13 +140,6 @@ impl VideoInner {
             if !next_row {
                 self.cursor_x += text.len() as u32 * self.font_width;
             } else {
-                self.cursor_x = 0;
-                self.cursor_y += self.font_height;
-            }
-
-            // TODO check for new line in text
-            // check if new line at the end
-            if text.ends_with('\n') {
                 self.cursor_x = 0;
                 self.cursor_y += self.font_height;
             }
