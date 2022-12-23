@@ -22,9 +22,8 @@ pub struct HeapAllocator {
 // Global instances
 //--------------------------------------------------------------------------------------------------
 
-// TODO remove pub
 #[global_allocator]
-pub static KERNEL_HEAP_ALLOCATOR: HeapAllocator = HeapAllocator::new();
+static KERNEL_HEAP_ALLOCATOR: HeapAllocator = HeapAllocator::new();
 
 //--------------------------------------------------------------------------------------------------
 // Private Code

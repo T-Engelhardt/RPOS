@@ -158,7 +158,6 @@ impl VideoInner {
     }
 
     fn scroll_video_console(&self) {
-        // TODO
         if let Some(display) = &self.display {
             if let Some(fp) = display.fp_ptr {
                 // move every char row up except the first
