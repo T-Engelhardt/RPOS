@@ -107,6 +107,8 @@
 //! 2. Once finished with architectural setup, the arch code calls `kernel_init()`.
 
 #![allow(clippy::upper_case_acronyms)]
+#![feature(alloc_error_handler)]
+#![feature(int_roundings)]
 #![feature(asm_const)]
 #![feature(const_option)]
 #![feature(format_args_nl)]
@@ -117,11 +119,17 @@
 #![no_main]
 #![no_std]
 
+use crate::{bsp::memory::virt_heap_start, memory::heap_alloc::kernel_heap_allocator};
+
+extern crate alloc;
+
 mod bsp;
+mod common;
 mod console;
 mod cpu;
 mod driver;
 mod gpu;
+mod memory;
 mod panic_wait;
 mod print;
 mod synchronization;
@@ -134,6 +142,9 @@ mod time;
 /// - Only a single core must be active and running this function.
 /// - The init calls in this function must appear in the correct order.
 unsafe fn kernel_init() -> ! {
+    // init heap first to enable drivers to use the heap
+    memory::init();
+
     // Initialize the BSP driver subsystem.
     if let Err(x) = bsp::driver::init() {
         panic!("Error initializing BSP driver subsystem: {}", x);
@@ -165,6 +176,10 @@ fn kernel_main() -> ! {
 
     info!("Drivers loaded:");
     driver::driver_manager().enumerate();
+
+    info!("Heap initialized");
+    info!("      Addr: {:?}", virt_heap_start());
+    kernel_heap_allocator().print_usage();
 
     // Test a failing timer case.
     time::time_manager().spin_for(Duration::from_nanos(1));
