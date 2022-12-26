@@ -12,17 +12,6 @@ use tock_registers::{
     registers::{ReadOnly, ReadWrite},
 };
 
-const BUFFER_LENGTH: usize = 100;
-/// Buffer for the Mail message send and recv
-///
-/// this ensure the message is not on the stack
-/// and can be written and read everywhere
-///
-/// # Safety
-///
-/// - fn that access BUFFER are proteced with a LOCK
-static mut BUFFER: [u32; BUFFER_LENGTH] = [0; BUFFER_LENGTH];
-
 register_bitfields! {
     u32,
 
@@ -67,8 +56,12 @@ register_structs! {
 /// Abstraction for the associated MMIO registers.
 type Registers = MMIODerefWrapper<RegisterBlock>;
 
+// Buffer for recv and sending mailbox messages
+const BUFFER_LENGTH: usize = 100;
+
 struct MailBoxInner {
     registers: Registers,
+    buffer: [u32; BUFFER_LENGTH],
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -84,12 +77,13 @@ impl MailBoxInner {
     pub const unsafe fn new(mmio_start_addr: usize) -> Self {
         Self {
             registers: Registers::new(mmio_start_addr),
+            buffer: [0; BUFFER_LENGTH],
         }
     }
 
     // TODO
     // check return code
-    pub fn request_framebuffer(&self) -> Option<Display> {
+    pub fn request_framebuffer(&mut self) -> Option<Display> {
         {
             #[rustfmt::skip]
             let msg: [u32; 28] = [
@@ -111,9 +105,9 @@ impl MailBoxInner {
         while self.recv_mail(WRITE::CHANNEL::MAIL_TAGS).is_err() {}
 
         let mut result = Display {
-            width: unsafe { BUFFER[10] },
-            height: unsafe { BUFFER[11] },
-            depth: ColorDepth::determine_depth(unsafe { BUFFER[15] }, unsafe { BUFFER[19] == 0 }),
+            width: self.read_buffer(10),
+            height: self.read_buffer(11),
+            depth: ColorDepth::determine_depth(self.read_buffer(15), self.read_buffer(19) == 0),
             fp_ptr: None,
             fp_len: 0,
         };
@@ -133,8 +127,8 @@ impl MailBoxInner {
         while self.recv_mail(WRITE::CHANNEL::MAIL_TAGS).is_err() {}
 
         // convert videocore mapped addr to arm addr
-        result.fp_ptr = Some((unsafe { BUFFER[5] } & 0x3FFFFFFF) as *const u32);
-        result.fp_len = unsafe { BUFFER[6] } as usize;
+        result.fp_ptr = Some((self.read_buffer(5) & 0x3FFFFFFF) as *const u32);
+        result.fp_len = self.read_buffer(6) as usize;
 
         Some(result)
     }
@@ -147,7 +141,7 @@ impl MailBoxInner {
     }
 
     // copy message from the stack to the static buffer
-    fn copy_to_buffer(&self, len: usize, src: &[u32]) {
+    fn copy_to_buffer(&mut self, len: usize, src: &[u32]) {
         if self.calc_padding::<u32>(BUFFER_LENGTH) != 0 {
             panic!("Buffer not 16 bit aligned")
         }
@@ -156,14 +150,12 @@ impl MailBoxInner {
             panic!("msg/src not 16 bit aligned")
         }
 
-        unsafe {
-            BUFFER[..len].copy_from_slice(src);
-        }
+        self.buffer[..len].copy_from_slice(src);
     }
 
     // sends message to mailbox
     // msg is copied to buffer
-    fn send_mail(&self, msg: &[u32], channel: FieldValue<u32, WRITE::Register>) {
+    fn send_mail(&mut self, msg: &[u32], channel: FieldValue<u32, WRITE::Register>) {
         // make sure that the addr is not on the stack
         self.copy_to_buffer(msg.len(), msg);
 
@@ -171,13 +163,13 @@ impl MailBoxInner {
         // debug print
         debug!(
             "Addr: {:?} ; Len: {:#010x}",
-            unsafe { BUFFER.as_mut_ptr() },
+            self.buffer.as_ptr(),
             msg.len() * size_of::<u32>(),
         );
 
         // debug print
-        for n in unsafe { BUFFER.iter().take(msg.len()) } {
-            debug!("{:#010x}", n);
+        for n in 0..msg.len() {
+            debug!("{:#010x}", self.read_buffer(n));
         }
 
         // write data
@@ -186,7 +178,7 @@ impl MailBoxInner {
         // thats why the address needs to be a 16 byte aligned buffer
         self.registers
             .WRITE
-            .write(channel + WRITE::DATA.val(unsafe { BUFFER.as_ptr() } as u32 >> 4));
+            .write(channel + WRITE::DATA.val(self.buffer.as_ptr() as u32 >> 4));
     }
 
     // blocks until message is received
@@ -207,12 +199,18 @@ impl MailBoxInner {
         }
 
         // debug print
-        let recv_length = unsafe { ptr::read_volatile(&BUFFER[0]) } as usize / size_of::<u32>();
-        for n in unsafe { BUFFER.iter().take(recv_length) } {
-            debug!("{:#010x}", n);
+        let recv_length = self.read_buffer(0) as usize / size_of::<u32>();
+        for n in 0..recv_length {
+            debug!("{:#010x}", self.read_buffer(n));
         }
 
         Ok(recv_channel)
+    }
+
+    /// read buffer
+    /// uses read_volatile since the contet of the buffer changes without the knowledge of the compiler
+    fn read_buffer(&self, idx: usize) -> u32 {
+        unsafe { ptr::read_volatile(self.buffer.as_ptr().add(idx)) }
     }
 
     pub fn _test(&self) {
