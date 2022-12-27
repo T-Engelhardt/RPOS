@@ -93,14 +93,10 @@ impl interface::Write for ConsoleManger {
     }
 
     fn write_fmt(&self, args: fmt::Arguments) -> fmt::Result {
-        self.inner.lock::<fmt::Result>(|inner| {
-            // iterate only on Some(console)
-            // doesn't uses for_each_console since we want to return fmt::Result
-            for opt_console in inner.list.iter().filter_map(|x| x.as_ref()) {
-                opt_console.console.write_fmt(args)?
-            }
-            fmt::Result::Ok(())
-        })
+        self.for_each_console(|console| {
+            let _ = console.console.write_fmt(args);
+        });
+        Ok(())
     }
 
     fn flush(&self) {
