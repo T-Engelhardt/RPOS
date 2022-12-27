@@ -57,7 +57,7 @@ register_structs! {
 type Registers = MMIODerefWrapper<RegisterBlock>;
 
 // Buffer for recv and sending mailbox messages
-const BUFFER_LENGTH: usize = 100;
+const BUFFER_LENGTH: usize = 32;
 
 #[repr(C, align(16))]
 struct BufferAligned([u32; BUFFER_LENGTH]);
