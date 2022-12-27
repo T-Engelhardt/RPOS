@@ -108,8 +108,10 @@ EXEC_MINIPUSH      = ruby ./common/serial/minipush.rb
 ##------------------------------------------------------------------------------
 ## Dockerization
 ##------------------------------------------------------------------------------
+DOCKER_NAME_INTERACT  = rpos_interact
+DOCKER_EXEC           = docker container exec -it $(DOCKER_NAME_INTERACT)
 DOCKER_CMD            = docker run -t --rm -v $(shell pwd):/work/tutorial -w /work/tutorial
-DOCKER_CMD_INTERACT   = $(DOCKER_CMD) -i
+DOCKER_CMD_INTERACT   = $(DOCKER_CMD) --name $(DOCKER_NAME_INTERACT) -i 
 DOCKER_ARG_DIR_COMMON = -v $(shell pwd)/./common:/work/common
 DOCKER_ARG_DEV        = --privileged -v /dev:/dev
 
@@ -125,12 +127,12 @@ ifeq ($(shell uname -s),Linux)
     DOCKER_CHAINBOOT = $(DOCKER_CMD_DEV) $(DOCKER_ARG_DIR_COMMON) $(DOCKER_IMAGE)
 endif
 
-
+GDBPORT	= 1234
 
 ##--------------------------------------------------------------------------------------------------
 ## Targets
 ##--------------------------------------------------------------------------------------------------
-.PHONY: all doc qemu qemuLocal chainboot chainbootLocal clippy clean readelf objdump nm check
+.PHONY: all doc qemu qemuLocal chainboot chainbootLocal clippy clean readelf objdump nm check gdb gdb-opt0 gdb-connect
 
 all: $(KERNEL_BIN)
 
@@ -231,6 +233,19 @@ objdump: $(KERNEL_ELF)
 nm: $(KERNEL_ELF)
 	$(call color_header, "Launching nm")
 	@$(DOCKER_TOOLS) $(NM_BINARY) --demangle --print-size $(KERNEL_ELF) | sort | rustfilt
+
+##------------------------------------------------------------------------------
+## Start GDB session
+##------------------------------------------------------------------------------
+gdb: RUSTC_MISC_ARGS += -C debuginfo=2
+gdb-opt0: RUSTC_MISC_ARGS += -C debuginfo=2 -C opt-level=0
+gdb gdb-opt0: $(KERNEL_BIN)
+	$(call color_header, "Launching QEMU Opt=0")
+	@$(DOCKER_QEMU) $(EXEC_QEMU) $(QEMU_RELEASE_ARGS) -gdb tcp::$(GDBPORT) -S -kernel $(KERNEL_BIN)
+gdb-connect: $(KERNEL_ELF)
+	$(call color_header, "Launching gdb")
+	@$(DOCKER_EXEC) gdb -ex "target remote localhost:$(GDBPORT)" -q $(KERNEL_ELF)
+
 
 
 
