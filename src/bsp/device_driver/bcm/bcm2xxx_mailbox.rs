@@ -62,6 +62,7 @@ const BUFFER_LENGTH: usize = 32;
 #[repr(C, align(16))]
 struct BufferAligned([u32; BUFFER_LENGTH]);
 
+#[repr(C, align(16))]
 struct MailBoxInner {
     registers: Registers,
     buffer: BufferAligned,
