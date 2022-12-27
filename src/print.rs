@@ -4,7 +4,7 @@
 
 //! Printing.
 
-use crate::console;
+use crate::console::{copy_console, interface::Write};
 use core::fmt;
 
 //--------------------------------------------------------------------------------------------------
@@ -13,7 +13,7 @@ use core::fmt;
 
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
-    console::console().write_fmt(args).unwrap();
+    copy_console::console_manger().write_fmt(args).unwrap();
 }
 
 /// Prints without a newline.
