@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "RPOS"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "aarch64-cpu",
  "embedded-graphics",
@@ -14,9 +14,9 @@ dependencies = [
 
 [[package]]
 name = "aarch64-cpu"
-version = "9.0.0"
+version = "9.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3aceb88e55ba626a5479279268d009a92d9d00eacce0de1b8c236c7ad31b7225"
+checksum = "37cbb46399ddd5520eab146c3d5b01539cff67da89c1d490da7d14d081ad4b55"
 dependencies = [
  "tock-registers",
 ]
