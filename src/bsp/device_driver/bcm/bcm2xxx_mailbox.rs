@@ -9,7 +9,7 @@ use tock_registers::{
     fields::FieldValue,
     interfaces::{Readable, Writeable},
     register_bitfields, register_structs,
-    registers::{ReadOnly, ReadWrite},
+    registers::{ReadOnly, WriteOnly},
 };
 
 register_bitfields! {
@@ -48,7 +48,7 @@ register_structs! {
         (0x04 => _reserved1),
         (0x18 => STATUS: ReadOnly<u32, STATUS::Register>),
         (0x1C => _reserved2), // CONFIG
-        (0x20 => WRITE: ReadWrite<u32, WRITE::Register>),
+        (0x20 => WRITE: WriteOnly<u32, WRITE::Register>),
         (0x24 => @END),
     }
 }
@@ -59,9 +59,12 @@ type Registers = MMIODerefWrapper<RegisterBlock>;
 // Buffer for recv and sending mailbox messages
 const BUFFER_LENGTH: usize = 100;
 
+#[repr(C, align(16))]
+struct BufferAligned([u32; BUFFER_LENGTH]);
+
 struct MailBoxInner {
     registers: Registers,
-    buffer: [u32; BUFFER_LENGTH],
+    buffer: BufferAligned,
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -77,7 +80,7 @@ impl MailBoxInner {
     pub const unsafe fn new(mmio_start_addr: usize) -> Self {
         Self {
             registers: Registers::new(mmio_start_addr),
-            buffer: [0; BUFFER_LENGTH],
+            buffer: BufferAligned([0; BUFFER_LENGTH]),
         }
     }
 
@@ -142,15 +145,11 @@ impl MailBoxInner {
 
     // copy message from the stack to the static buffer
     fn copy_to_buffer(&mut self, len: usize, src: &[u32]) {
-        if self.calc_padding::<u32>(BUFFER_LENGTH) != 0 {
-            panic!("Buffer not 16 bit aligned")
-        }
-
         if self.calc_padding::<u32>(len) != 0 {
             panic!("msg/src not 16 bit aligned")
         }
 
-        self.buffer[..len].copy_from_slice(src);
+        unsafe { ptr::copy_nonoverlapping::<u32>(src.as_ptr(), self.buffer.0.as_mut_ptr(), len) }
     }
 
     // sends message to mailbox
@@ -163,7 +162,7 @@ impl MailBoxInner {
         // debug print
         debug!(
             "Addr: {:?} ; Len: {:#010x}",
-            self.buffer.as_ptr(),
+            self.buffer.0.as_ptr(),
             msg.len() * size_of::<u32>(),
         );
 
@@ -178,7 +177,7 @@ impl MailBoxInner {
         // thats why the address needs to be a 16 byte aligned buffer
         self.registers
             .WRITE
-            .write(channel + WRITE::DATA.val(self.buffer.as_ptr() as u32 >> 4));
+            .write(channel + WRITE::DATA.val(self.buffer.0.as_ptr() as u32 >> 4));
     }
 
     // blocks until message is received
@@ -210,7 +209,10 @@ impl MailBoxInner {
     /// read buffer
     /// uses read_volatile since the contet of the buffer changes without the knowledge of the compiler
     fn read_buffer(&self, idx: usize) -> u32 {
-        unsafe { ptr::read_volatile(self.buffer.as_ptr().add(idx)) }
+        if idx >= BUFFER_LENGTH {
+            panic!("buffer index to large");
+        }
+        unsafe { ptr::read_volatile(self.buffer.0.as_ptr().add(idx)) }
     }
 
     pub fn _test(&self) {
